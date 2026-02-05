@@ -678,7 +678,10 @@ def delete_mission(mission_name: str):
         role = verify_itak_certificate(mission_name)
         if isinstance(role, flask.Response):
             return role
-        eud_uid = role.clientUid
+        # Safely access clientUid - handle SQLAlchemy result proxy issues
+        eud_uid = getattr(role, 'clientUid', None)
+        if not eud_uid:
+            return jsonify({"success": False, "error": "Invalid client UID"}), 400
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if mission:
@@ -688,7 +691,8 @@ def delete_mission(mission_name: str):
 
         # Check if the UID in the token has the MISSION_OWNER role for this mission. If not, it can't delete the mission
         for role in mission.roles:
-            if role.clientUid == eud_uid and role.role_type == MissionRole.MISSION_OWNER:
+            role_client_uid = getattr(role, 'clientUid', None)
+            if role_client_uid == eud_uid and role.role_type == MissionRole.MISSION_OWNER:
                 can_delete = True
                 break
 
@@ -752,7 +756,9 @@ def set_password(mission_name: str):
         role = verify_itak_certificate(mission_name)
         if isinstance(role, flask.Response):
             return role
-        eud_uid = role.clientUid
+        eud_uid = getattr(role, 'clientUid', None)
+        if not eud_uid:
+            return jsonify({"success": False, "error": "Invalid client UID"}), 400
 
     if request.method == "PUT" and "password" not in request.args:
         return jsonify({"success": False, "error": gettext("Please provide the password")}), 400
@@ -1121,7 +1127,9 @@ def change_eud_role(mission_name: str):
         role = verify_itak_certificate(mission_name)
         if isinstance(role, flask.Response):
             return role
-        eud_uid = role.clientUid
+        eud_uid = getattr(role, 'clientUid', None)
+        if not eud_uid:
+            return jsonify({"success": False, "error": "Invalid client UID"}), 400
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:
@@ -1518,7 +1526,9 @@ def mission_unsubscribe(mission_name: str):
         role = verify_itak_certificate(mission_name)
         if isinstance(role, flask.Response):
             return role
-        eud_uid = role.clientUid
+        eud_uid = getattr(role, 'clientUid', None)
+        if not eud_uid:
+            return jsonify({"success": False, "error": "Invalid client UID"}), 400
 
     # if "uid" not in request.args:
     #    return jsonify({'success': False, 'error': 'Missing UID'}), 400
@@ -2015,7 +2025,9 @@ def delete_content(mission_name: str):
         role = verify_itak_certificate(mission_name)
         if isinstance(role, flask.Response):
             return role
-        eud_uid = role.clientUid
+        eud_uid = getattr(role, 'clientUid', None)
+        if not eud_uid:
+            return jsonify({"success": False, "error": "Invalid client UID"}), 400
 
     mission = db.session.execute(db.session.query(Mission).filter_by(name=mission_name)).first()
     if not mission:

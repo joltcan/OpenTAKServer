@@ -15,7 +15,7 @@ class Certificate(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     common_name: Mapped[str] = mapped_column(String(255))
     eud_uid: Mapped[str] = mapped_column(
-        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True
+        String(255), ForeignKey("euds.uid", ondelete="CASCADE"), nullable=True, unique=True
     )
     data_package_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("data_packages.id"), nullable=True
