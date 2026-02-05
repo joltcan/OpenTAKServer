@@ -128,7 +128,8 @@ def upgrade():
             for cert_id in dup_cert_ids:
                 new_uid = f"{eud_uid}::dup::{cert_id}"
                 
-                # Insert cloned EUD
+                # Insert cloned EUD with unique callsign (append ::dup::<cert_id>)
+                cloned_callsign = f"{eud_row[1]}::dup::{cert_id}" if eud_row[1] else f"dup_{cert_id}"
                 connection.execute(
                     sa.text("""
                     INSERT INTO euds (
@@ -143,7 +144,7 @@ def upgrade():
                     """),
                     {
                         "uid": new_uid,
-                        "callsign": eud_row[1],
+                        "callsign": cloned_callsign,
                         "device": eud_row[2],
                         "os": eud_row[3],
                         "platform": eud_row[4],
@@ -212,7 +213,8 @@ def upgrade():
                 ).fetchone()
                 
                 if not existing:
-                    # Insert cloned EUD
+                    # Insert cloned EUD with unique callsign
+                    cloned_callsign = f"{eud_row[1]}::dup::{pkg_id}" if eud_row[1] else f"dup_{pkg_id}"
                     connection.execute(
                         sa.text("""
                         INSERT INTO euds (
@@ -227,7 +229,7 @@ def upgrade():
                         """),
                         {
                             "uid": new_uid,
-                            "callsign": eud_row[1],
+                            "callsign": cloned_callsign,
                             "device": eud_row[2],
                             "os": eud_row[3],
                             "platform": eud_row[4],
@@ -256,15 +258,17 @@ def upgrade():
     
     # Step 4: Add unique constraints
     connection.execute(sa.text("""
-    ALTER TABLE certificates
-    ADD CONSTRAINT certificates_eud_uid_key UNIQUE (eud_uid)
-    WHERE eud_uid IS NOT NULL
+    DROP INDEX IF EXISTS certificates_eud_uid_key
+    """))
+    connection.execute(sa.text("""
+    CREATE UNIQUE INDEX certificates_eud_uid_key ON certificates(eud_uid) WHERE eud_uid IS NOT NULL
     """))
     
     connection.execute(sa.text("""
-    ALTER TABLE data_packages
-    ADD CONSTRAINT data_packages_creator_uid_key UNIQUE (creator_uid)
-    WHERE creator_uid IS NOT NULL
+    DROP INDEX IF EXISTS data_packages_creator_uid_key
+    """))
+    connection.execute(sa.text("""
+    CREATE UNIQUE INDEX data_packages_creator_uid_key ON data_packages(creator_uid) WHERE creator_uid IS NOT NULL
     """))
     
     connection.commit()
@@ -279,22 +283,13 @@ def downgrade():
     """
     connection = op.get_bind()
     
-    # Remove unique constraints
-    try:
-        connection.execute(sa.text("""
-        ALTER TABLE certificates
-        DROP CONSTRAINT certificates_eud_uid_key
-        """))
-    except:
-        pass
-    
-    try:
-        connection.execute(sa.text("""
-        ALTER TABLE data_packages
-        DROP CONSTRAINT data_packages_creator_uid_key
-        """))
-    except:
-        pass
+    # Remove unique constraint indexes
+    connection.execute(sa.text("""
+    DROP INDEX IF EXISTS certificates_eud_uid_key
+    """))
+    connection.execute(sa.text("""
+    DROP INDEX IF EXISTS data_packages_creator_uid_key
+    """))
     
     # Reassign certificates and data_packages back to original EUDs
     connection.execute(sa.text("""
